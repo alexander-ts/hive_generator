@@ -1,23 +1,21 @@
-import 'dart:typed_data';
-
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:hive/hive.dart';
+import 'package:dartx/dartx.dart';
 import 'package:hive_generator/src/builder.dart';
 import 'package:hive_generator/src/helper.dart';
 import 'package:source_gen/source_gen.dart';
-import 'package:dartx/dartx.dart';
 
 class ClassBuilder extends Builder {
-  var hiveListChecker = const TypeChecker.fromRuntime(HiveList);
-  var listChecker = const TypeChecker.fromRuntime(List);
-  var mapChecker = const TypeChecker.fromRuntime(Map);
-  var setChecker = const TypeChecker.fromRuntime(Set);
-  var iterableChecker = const TypeChecker.fromRuntime(Iterable);
-  var uint8ListChecker = const TypeChecker.fromRuntime(Uint8List);
+  var hiveListChecker =
+      const TypeChecker.fromUrl('package:hive/hive.dart#HiveList');
+  var listChecker = const TypeChecker.fromUrl('dart:core#List');
+  var mapChecker = const TypeChecker.fromUrl('dart:core#Map');
+  var setChecker = const TypeChecker.fromUrl('dart:core#Set');
+  var iterableChecker = const TypeChecker.fromUrl('dart:core#Iterable');
+  var uint8ListChecker = const TypeChecker.fromUrl('dart:typed_data#Uint8List');
 
-  ClassBuilder(
-      ClassElement cls, List<AdapterField> getters, List<AdapterField> setters)
+  ClassBuilder(InterfaceElement cls, List<AdapterField> getters,
+      List<AdapterField> setters)
       : super(cls, getters, setters);
 
   @override
@@ -28,17 +26,19 @@ class ClassBuilder extends Builder {
     var fields = <int, dynamic>{
       for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return ${cls.name}(
+    return ${cls.name!}(
     ''');
 
-    var constr = cls.constructors.firstOrNullWhere((it) => it.name.isEmpty);
+    // In analyzer 8+, the unnamed constructor name is 'new' (not '').
+    var constr = cls.constructors
+        .firstOrNullWhere((it) => it.name == 'new' || (it.name ?? '').isEmpty);
     check(constr != null, 'Provide an unnamed constructor.');
 
     // The remaining fields to initialize.
     var fields = setters.toList();
 
     var initializingParams =
-        constr.parameters.where((param) => param.isInitializingFormal);
+        constr!.formalParameters.where((param) => param.isInitializingFormal);
     for (var param in initializingParams) {
       var field = fields.firstOrNullWhere((it) => it.name == param.name);
       // Final fields
@@ -75,7 +75,7 @@ class ClassBuilder extends Builder {
     } else if (mapChecker.isExactlyType(type)) {
       return '($variable as Map)${_castMap(type)}';
     } else {
-      return '$variable as ${type.name}';
+      return '$variable as ${type.getDisplayString()}';
     }
   }
 
@@ -102,7 +102,7 @@ class ClassBuilder extends Builder {
       }
       return '?.map((dynamic e)=> ${_cast(arg, 'e')})$cast';
     } else {
-      return '?.cast<${arg.name}>()';
+      return '?.cast<${arg.getDisplayString()}>()';
     }
   }
 
@@ -114,7 +114,7 @@ class ClassBuilder extends Builder {
       return '?.map((dynamic k, dynamic v)=>'
           'MapEntry(${_cast(arg1, 'k')},${_cast(arg2, 'v')}))';
     } else {
-      return '?.cast<${arg1.name}, ${arg2.name}>()';
+      return '?.cast<${arg1.getDisplayString()}, ${arg2.getDisplayString()}>()';
     }
   }
 
