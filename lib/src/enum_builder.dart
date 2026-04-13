@@ -18,7 +18,7 @@ class EnumBuilder extends Builder {
 
     code.writeln('''
       default:
-        return null;
+        throw HiveError('Unknown stored enum index for type ${cls.name!}');
       }''');
 
     return code.toString();

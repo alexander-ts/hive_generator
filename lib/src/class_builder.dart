@@ -1,4 +1,5 @@
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:dartx/dartx.dart';
 import 'package:hive_generator/src/builder.dart';
@@ -66,14 +67,18 @@ class ClassBuilder extends Builder {
     return code.toString();
   }
 
+  bool _isNullable(DartType type) =>
+      type.nullabilitySuffix == NullabilitySuffix.question;
+
   String _cast(DartType type, String variable) {
+    var q = _isNullable(type) ? '?' : '';
     if (hiveListChecker.isExactlyType(type)) {
-      return '($variable as HiveList)?.castHiveList()';
+      return '($variable as HiveList$q)$q.castHiveList()';
     } else if (iterableChecker.isAssignableFromType(type) &&
         !isUint8List(type)) {
-      return '($variable as List)${_castIterable(type)}';
+      return '($variable as List$q)${_castIterable(type)}';
     } else if (mapChecker.isExactlyType(type)) {
-      return '($variable as Map)${_castMap(type)}';
+      return '($variable as Map$q)${_castMap(type)}';
     } else {
       return '$variable as ${type.getDisplayString()}';
     }
@@ -91,30 +96,33 @@ class ClassBuilder extends Builder {
   }
 
   String _castIterable(DartType type) {
+    var q = _isNullable(type) ? '?' : '';
     var paramType = type as ParameterizedType;
     var arg = paramType.typeArguments[0];
     if (isMapOrIterable(arg) && !isUint8List(arg)) {
-      var cast = '';
+      var toCollection = '';
       if (listChecker.isExactlyType(type)) {
-        cast = '?.toList()';
+        toCollection = '$q.toList()';
       } else if (setChecker.isExactlyType(type)) {
-        cast = '?.toSet()';
+        toCollection = '$q.toSet()';
       }
-      return '?.map((dynamic e)=> ${_cast(arg, 'e')})$cast';
+      return '$q.map((dynamic e)=> ${_cast(arg, 'e')})$toCollection';
     } else {
-      return '?.cast<${arg.getDisplayString()}>()';
+      return '$q.cast<${arg.getDisplayString()}>()';
     }
   }
 
   String _castMap(DartType type) {
+    var q = _isNullable(type) ? '?' : '';
     var paramType = type as ParameterizedType;
     var arg1 = paramType.typeArguments[0];
     var arg2 = paramType.typeArguments[1];
     if (isMapOrIterable(arg1) || isMapOrIterable(arg2)) {
-      return '?.map((dynamic k, dynamic v)=>'
+      return '$q.map((dynamic k, dynamic v)=>'
           'MapEntry(${_cast(arg1, 'k')},${_cast(arg2, 'v')}))';
     } else {
-      return '?.cast<${arg1.getDisplayString()}, ${arg2.getDisplayString()}>()';
+      return '$q.cast<${arg1.getDisplayString()},'
+          ' ${arg2.getDisplayString()}>()';
     }
   }
 
@@ -135,8 +143,10 @@ class ClassBuilder extends Builder {
   }
 
   String _convertIterable(DartType type, String accessor) {
-    if (setChecker.isExactlyType(type) || iterableChecker.isExactlyType(type)) {
-      return '$accessor?.toList()';
+    if (setChecker.isExactlyType(type) ||
+        iterableChecker.isExactlyType(type)) {
+      var q = _isNullable(type) ? '?' : '';
+      return '$accessor$q.toList()';
     } else {
       return accessor;
     }

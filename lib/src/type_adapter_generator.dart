@@ -61,7 +61,7 @@ class TypeAdapterGenerator extends GeneratorForAnnotation<HiveType> {
 
     for (var type in types) {
       for (var field in type.fields) {
-        if (field.isStatic) continue;
+        if (field.isStatic && !field.isEnumConstant) continue;
         var fieldName = field.name!;
         if (seenNames.contains(fieldName)) continue;
         seenNames.add(fieldName);
